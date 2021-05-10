@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Projects on Chelsea&#39;s Site</title>
+    <link>/project/</link>
+    <description>Recent content in Projects on Chelsea&#39;s Site</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-US</language><atom:link href="/project/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>SDS 348 Project 1- Crime in U.S. Cities</title>
+      <link>/project/project1/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/project/project1/</guid>
+      <description>Chelsea Vu (clv743)
+R Markdown Introduction . For this Project, I decided to look at the murder prevalence and demographic information of different U.S. cities. My first dataset, “murder_2016_prelim”, includes the number of murders in 2015, the number of murders in 2016 and the change in the number of murders between these two years for various U.S. cities. This dataset also includes the state of each city, the source from which each observation was obtained and the dates that the data are relevant up to.</description>
+    </item>
+    
+    <item>
+      <title>SDS348 PROJECT 2</title>
+      <link>/project/project2/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/project/project2/</guid>
+      <description>Chelsea Vu (clv743)
+R Markdown Introduction For my project, I chose the BEPS dataset, which includes data drawn from the 1997-2001 British Election Panel Study (BEPS). This dataset has 10 variables and 1525 observations. The variable “vote” describes the voter’s party choice, having “Conservative”, “Labour” and “Liberal Democrat” groups. The variable “age” describes the voter’s age in years. The variable “economic.cond.national” describes the assessment rating of current national economic conditions, 1 to 5 when the voter voted, while the “economic.</description>
+    </item>
+    
+  </channel>
+</rss>

@@ -1,0 +1,259 @@
+---
+title: "SDS348 PROJECT 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r global_options, include=FALSE}
+#LEAVE THIS CHUNK ALONE!
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=5, message=FALSE, warning=FALSE, fig.width=8, tidy.opts=list(width.cutoff=60),tidy=TRUE)
+
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  #CALCULATE EXACT AUC
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+
+  data.frame(acc,sens,spec,ppv,auc)
+}
+```
+
+Chelsea Vu (clv743)
+
+## R Markdown
+### Introduction
+<span style="color:blue"> For my project, I chose the BEPS dataset, which includes data drawn from the 1997-2001 British Election Panel Study (BEPS). This dataset has 10 variables and 1525 observations. The variable "vote" describes the voter's party choice, having "Conservative", "Labour" and "Liberal Democrat" groups. The variable "age" describes the voter's age in years. The variable "economic.cond.national" describes the assessment rating of current national economic conditions, 1 to 5 when the voter voted, while the "economic.cond.household" variable describes the assessment of current household economic conditions, 1 to 5. Higher numbers in these variables indicate better economic conditions. "Blair", "Hague" and "Kennedy" are variables that drescribe the voter's assessment of the Labour, Conservative and Liberal Democrat leaders, respectively. The "Europe" variable decribes the respondents' attitudes toward European integration, with high scores representing ‘Eurosceptic’ sentiment. The "political.knowledge" variable describes the respondent's knowledge of parties' positions on European integration on a scale of 0 to 3, with 3 indicating the respondent is very knowledgable. Finally "gender" describes whether the respondent identified as male or female.</span>  
+
+### MANOVA
+```{r cars}
+library(carData)
+data(BEPS)
+
+#multivariate normality assumption
+library(rstatix)
+group <- BEPS$vote
+DVs <- BEPS %>% select(age, economic.cond.national, economic.cond.household, Blair, Hague, Kennedy, Europe, political.knowledge)
+sapply(split(DVs,group), mshapiro_test)
+
+#MANOVA
+man1<-manova(cbind(age, economic.cond.national, economic.cond.household, Blair, Hague, Kennedy, Europe, political.knowledge)~vote, data=BEPS)
+summary(man1)
+
+#ANOVA
+summary.aov(man1)
+
+#Post-Hoc t-tests
+pairwise.t.test(BEPS$age,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$economic.cond.national,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$economic.cond.household,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$Blair,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$Hague,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$Kennedy,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$Europe,BEPS$vote, p.adj="none")
+pairwise.t.test(BEPS$political.knowledge,BEPS$vote, p.adj="none")
+
+#bonferroni
+0.05/33
+
+# probability of at least one type I error (unadjusted)
+1- (0.95^33)
+```
+
+<span style="color:blue"> MANOVA has many assumptions. Some were met by this dataset, including random samples and independent observations. By performing the formal multivariate normality assumption test however, it can be seen that multivariate normality of DVs assumption was not met, since each group had a significant p-value. The results of the MANOVA give a significant p-value of <2.2e-16, indicating that significant differences were found among the three voter party choices, for at least one of the dependent variables. Univariate ANOVAs for each dependent variable were conducted as follow-up tests to the MANOVA. From these tests it can be seen that all of the response variables (age, "economic.cond.national", "economic.cond.household", "Blair", "Hague", "Kennedy", "Europe" and political.knowledge) were significant with pvalues of 5.835e-05, < 2.2e-16, 3.849e-16, < 2.2e-16, < 2.2e-16, < 2.2e-16, < 2.2e-16 and 1.093e-08, respectively. When performing the t-tests, it can be seen that all 3 parties affiliations differed significantly from eachother in terms of the variables "economic.cond.national", "Blair" and"Kennedy". The level of significance used was based on the Bonferroni correction, which gave a significance value of 0.001515. In total, 1 MANOVA, 8 ANOVA and 24 t-tests were performed, which is a total of 33 tests. The probability of making a type I error (unadjusted) was calculated to be 0.81597. </span> 
+
+
+### Randomization Test 
+```{R}
+library(dplyr)
+
+set.seed(348)
+BEPS %>% group_by(gender) %>% summarize(means=mean(Blair)) %>% summarize(diff(means))
+
+rand_dist<-vector()
+for(i in 1:5000){
+new<-data.frame(Blair=sample(BEPS$Blair),condition=BEPS$gender)
+rand_dist[i]<-mean(new[new$condition=="female",]$Blair)-
+mean(new[new$condition=="male",]$Blair)
+}
+mean(rand_dist< -0.1647707	 | rand_dist> 0.1647707	 )
+
+{hist(rand_dist,main="",ylab=""); abline(v = c(0.1647707,-0.1647707),col="red")}
+```
+<span style="color:blue">A randomization test was performed to observe the mean differences in "Blair" score between males and females. The null hypothesis is that the mean "Blair" score is the same for males vs. females. The alternative hypothesis is that the mean "Blair" score is different for males vs. females. When the test was run, a p-value of 0.0056 was recieved, which means that we reject the null hypothesis. This means that there is a significant difference in mean "Blair" scores between males and females. </span> 
+
+### Linear Regression Model
+
+```{R}
+library(ggplot2)
+fit<-lm(Europe ~ gender*age, data=BEPS)
+
+BEPS$age_c <-BEPS$age - mean(BEPS$age)
+fit_c<-lm(Europe ~ gender*age_c, data=BEPS)
+summary(fit_c) 
+
+ggplot(BEPS, aes(x=age, y=Europe))+geom_point(aes(color=gender))+
+  geom_smooth(method="lm",formula=y~1,se=F,fullrange=T,aes(color=gender))+
+theme(legend.position=c(.9,.19))+xlab("Age")+ ggtitle("Predicting Europe Score from Age and Gender")
+
+#checking assumptions
+library(sandwich)
+library(lmtest)
+resids<-lm(Europe ~ gender*age_c, data=BEPS)$residuals
+fitvals<-fit_c$fitted.values
+ggplot()+geom_point(aes(fitvals,resids))+geom_hline(yintercept=0, color='red')
+ks.test(resids, "pnorm", mean=0, sd(resids)) 
+bptest(fit_c)
+
+#Robust Standard Errors:
+
+#uncorrected
+summary(fit_c)$coef[,1:2]
+
+#corrected
+coeftest(fit_c, vcov = vcovHC(fit_c))[,1:2]
+
+````
+<span style="color:blue">A linear regression was run to predict respondents' attitudes toward European integration from age and gender. The intercept of 6.962 is the mean "Europe" score for females with an age of 0. Males of age 0 have average "Europe" score thats 0.504 less than fameles of age 0. The slope of age on "Europe" score for males is 0.0145 less than that for females. Our R-squared value is 0.117, indicating that 1.17% of variability in "Europe" is explained. The Kolmogorov-Smirnov test for normality resulted in a p-value of 2.065e-14, indicating that the normality assumption was violated. The bptest p-value was 8.004e-14 indicating that the homoskedascity and linearity assumptions were not met either. These can also be observed by the graph of the residuals vs fitted values. The "coeftest" functions were used to add corrected SEs. This did not change the coefficients estimates and only changed the standard errors values slightly. In comparison to the original standard errors, the intercept and "age_c" robust standard errors were smaller and the "gendermale" and "gendermale:age_c" SEs were larger.</span> 
+
+###  Bootstrapped Standard Errors
+```{R}
+library(dplyr)
+boot_dat<- sample_frac(BEPS, replace=T)
+samp_distn<-replicate(5000, {
+boot_dat <- sample_frac(BEPS, replace=T) 
+fit2 <- lm(Europe ~ gender*age_c, data=boot_dat) 
+coef(fit2) 
+})
+
+samp_distn %>% t %>% as.data.frame %>% summarize_all(sd)
+```
+<span style="color:blue">Bootstrapped standard errors were found by resampling observations. In comparison to the original standard errors, the intercept and "age_c" bootstrapped SE's are smaller, but the "gendermale" and "gendermale:age_c" bootstrapped SE's are larger. In comparison to the robust standard errors, the intercept bootstrapped SE is smaller, and the "gendermale", "age_c" and "gendermale:age_c" bootstrapped SE's were larger. These differences were not large.</span> 
+
+
+### Logistic Regression- Predicting Gender from "Europe score" and Political Knowledge
+```{R}
+logfit<-glm(gender~Europe+ political.knowledge, data=BEPS, family="binomial")
+coeftest(logfit)
+
+exp(0.033988)
+exp(0.283615)
+
+#confusion matrix
+probs<-predict(logfit,type="response")
+table(predict=as.numeric(probs>.5),truth=BEPS$gender)%>%addmargins
+library(tidyverse)
+class_diag(probs,BEPS$gender)
+
+logit<-predict(logfit,type="link")
+
+#Density Plot
+BEPS%>%ggplot()+geom_density(aes(logit,color=gender,fill=gender), alpha=.4)+
+  theme(legend.position=c(.85,.85))+geom_vline(xintercept=0)+xlab("logit (log-odds)")+
+  geom_rug(aes(logit,color=gender))+
+  geom_text(x=-5,y=.07,label="TN = 431")+
+  geom_text(x=-1.75,y=.008,label="FN = 19")+
+  geom_text(x=1,y=.006,label="FP = 13")+
+  geom_text(x=5,y=.04,label="TP = 220") + ggtitle("Density Plot of Log-Odds Grouped by Gender")
+
+
+#ROC
+library(plotROC)
+ROCplot<-ggplot(BEPS)+geom_roc(aes(d=gender,m=probs), n.cuts=0) 
+
+ROCplot
+calc_auc(ROCplot)
+```
+<span style="color:blue">A logistic regression was run to predict gender, which is a binary variable, from "Europe" score and political knowledge. Since the binary used is categorical, "female" is assumed to be "0", while "male" is assumed to be "1". Controlling for political knowledge, "Europe" score for males and females are significantly different(p-value=0.03313). Controlling for political knowledge, for every 1 unit increase in "Europe" score, the odds of being male ("1") decrease by a factor of e^(0.033988)= 1.0346 (they decrease by 3.46%). Controlling for "Europe" score, every 1 unit increase in political knowlege, the odds of being male ("1") increase by a factor of e^(0.283615)= 1.327922 (they increase by 32.79%). This prediction is also significant. </span>
+
+<span style="color:blue">By performing the confusion matrix and looking at the classification diagnostics, it can be seen that the accuracy is 0.5770492, the sensitivity (TPR) is 0.5035063, the specificity(TNR) is 0.6416256, the precision (PPV) is 0.5523077 and the AUC is 0.6015759. The AUC describes the probability that a randomly selected female has a higher predicted probability than a randomly selected male. </span>
+
+<span style="color:blue">The density plot of the log odds grouped by gender shows us that there are a lot of misclassifications(false positives and false negatives) because there is a large area of overlap between the two curves. This also means that it is difficult to determine gender based off of "Europe" score and political knowledge. </span>
+
+<span style="color:blue">The ROC curve also shows us this, as it is not close to a perfect prediction ROC, in which TPR would be 1 while FPR would be 0 for any cutoff except 100%.  This makes sense given out lower AUC of 0.6015759.</span>
+
+
+### Logisitic Regression- Predicting Gender from All Other Variables
+```{R}
+allfit<-glm(gender~.,data=BEPS,family="binomial")
+coef(allfit)
+probs2<-predict(allfit,type="response")
+class_diag(probs2, BEPS$gender) 
+
+
+#K-fold CV
+set.seed(1234)
+k=10 #choose number of folds
+datak<-BEPS[sample(nrow(BEPS)),]
+foldsk<-cut(seq(1:nrow(BEPS)),breaks=k,labels=F) 
+diagsk<-NULL
+for(i in 1:k){
+
+traink<-datak[foldsk!=i,]
+testk<-datak[foldsk==i,]
+truthk<-testk$gender
+
+fit3<-glm(gender~.,data=traink,family="binomial")
+probs3<-predict(fit3,newdata = testk,type="response")
+
+diagsk<-rbind(diagsk,class_diag(probs3,truthk))
+}
+
+summarize_all(diagsk,mean)
+
+#LASSO
+library(glmnet)
+set.seed(1234)
+y<-as.matrix(BEPS$gender) #grab response
+x<-model.matrix(gender~.,data=BEPS)[,-1]
+head(x)
+
+
+cvlass<-cv.glmnet(x,y,family="binomial")
+lasso1<-glmnet(x,y,family="binomial",lambda=cvlass$lambda.1se)
+coef(lasso1)
+
+#CV on LASSO
+set.seed(535)
+k=10
+dataklass <- BEPS %>% sample_frac #put rows of dataset in random order
+foldsklass <- ntile(1:nrow(dataklass),n=10) #create fold labels
+diagsklass<-NULL
+for(i in 1:k){
+trainklass <- dataklass[foldsklass!=i,] #create training set (all but fold i)
+testklass <- dataklass[foldsklass==i,] #create test set (just fold i)
+truthklass <- testklass$gender #save truth labels from fold i
+fitklass <- glm(gender~political.knowledge,
+data=trainklass, family="binomial")
+probsklass <- predict(fitklass, newdata=testklass, type="response")
+diagsklass<-rbind(diagsklass,class_diag(probsklass,truthklass))
+}
+diagsklass%>%summarize_all(mean)
+```
+
+<span style="color:blue">A logistic regression was run predicting gender from all the other variables. Looking at the class dianostics, the accuracy is 0.5790164	, the sensitivity (TPR) is 0.5007013, the specificity(TNR) is 0.6477833, the precision (PPV) is 0.55521 and the AUC is 0.6101448.In comparison to the previous model, this model has a higher accuracy, specificity, precision and AUC. It also has a lower sensitivity. Ideally these values would be closer to 1, so although these values are generally higher than the previous model, our in-sample performance is still mediocre. 
+
+<span style="color:blue">When running the 10-fold CV, the accuracy was 0.5757998	, the sensitivity (TPR) was 0.4969839, the specificity(TNR) was 0.6482415, the precision (PPV) was 0.554085 and the AUC was 0.5974683. These lower values indicate that our out-of-sample performance is worse than our in-sample performance. This can be a sign of slight overfitting. </span> 
+
+<span style="color:blue">Looking at the LASSO test, it can be seen that political knowledge is the most predicting variable because it is the only variable with an s0 score (s0=0.1408915). Therefore, only the political knowledge variable was retained for the following CV.</span> 
+
+<span style="color:blue">When a 10-fold CV was run using only the political knowledge variable, the accuracy was 0.5443283, the sensitivity (TPR) was 0.433638, the specificity(TNR) was 0.6816993, the precision (PPV) was 0.5972583 and the AUC was 0.5951724. In comparison to the 10 fold CV using all variables, this CV resulted in a lower accuracy, a lower TPR, a higher TNR, a higher PPV, and a lower overall AUC. This means that this CV was slightly worse performing than the previous CV and the in-sample performances. This may mean this model had more overfitting.</span> 

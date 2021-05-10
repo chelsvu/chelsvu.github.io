@@ -1,0 +1,218 @@
+---
+title: "SDS 348 Project 1- Crime in U.S. Cities"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", 
+    warning = F, message = F, tidy = TRUE, tidy.opts = list(width.cutoff = 60), 
+    R.options = list(max.print = 100))
+```
+Chelsea Vu (clv743)
+
+## R Markdown
+### Introduction
+<span style="color:blue">. For this Project, I decided to look at the murder prevalence and demographic information of different U.S. cities. My first dataset, "murder_2016_prelim", includes the number of murders in 2015, the number of murders in 2016 and the change in the number of murders between these two years for various U.S. cities. This dataset also includes the state of each city, the source from which each observation was obtained and the dates that the data are relevant up to. This data was obtained by various police departments and government websites. The second dataset I chose, "us.cities", includes U.S. cities with a population greater than 40,000, their state, population, coordinates and whether they are a non-capitol city (0), a capitol city (1) or a state capitol(2).</span> 
+
+<span style="color:blue">   I am interested in observing what correlations might exist between the demographic information of these U.S. cities and their murder statistics. I expect that larger cities will have a larger number of murders but about the same percent change in murders as smaller cities. I also predict that capitol cities will have a greater proportion of murders</span>. 
+
+```{r cars}
+r = getOption("repos")
+r["CRAN"] = "http://cran.us.r-project.org"
+options(repos = r)
+install.packages("dplyr")
+library(dplyr)
+install.packages("tidyr")
+library(tidyr)
+
+install.packages("fivethirtyeight")
+library(fivethirtyeight)
+data(murder_2016_prelim)
+
+install.packages("maps")
+library(maps)
+data(us.cities)
+
+```
+
+### Tidying: Rearranging Wide/long
+
+```{R}
+untidy1 <- murder_2016_prelim %>% pivot_wider(names_from= "state",values_from= "change" ) 
+head(untidy1)
+tidy1 <- untidy1 %>% pivot_longer(6:39, names_to = "state", values_to="change") %>% na.omit() 
+head(tidy1)
+```
+<span style="color:blue">The "untidy1" dataset is the untidy version of the "murder_2016_prelim" dataset, created by using "pivot_wider". This was made tidy again by using the "pivot_longer" function on "untidy1" and creating the "tidy1" dataset, which is the same as the "murder_2016_prelim" dataset.</span>
+
+```{R}
+untidy2 <- us.cities %>% pivot_wider(names_from= "country.etc",values_from= "capital" ) 
+head(untidy2)
+tidy2 <- untidy2 %>% pivot_longer(5:55, names_to = "country.etc", values_to="capital") %>% na.omit()
+head(tidy2)
+```
+<span style="color:blue">The "us.cities" dataset was made untidy by using "pivot_wider", and this untidy version is called "untidy2". This was made tidy again by using "pivot_longer" on "untidy2", leaving the "tidy2" dataset, which is the same as the original "us.cities" dataset. </span>
+
+
+### Joining/Merging
+```{R}
+
+newus.cities <- us.cities %>% separate(name, into = c("city", "state")) %>% glimpse
+
+newjoin <- full_join(newus.cities, murder_2016_prelim, by= c("city")) %>% na.omit() %>% glimpse() 
+```
+<span style="color:blue">I joined the two datasets based on the common variable of "city". To join these two datasets, I had to modify "city" ID variable of the "us.cities" dataset so that it included only the city in the name and not the state. I did this by using the "separate" function, and the resulting dataset was called "newus.cities". This dataset had 1005 observations and 7 variables. The unchanged "murder_2016_prelim" had 79 observations and 7 variables. Finally, I joined the "newus.cities" and the "murder_2016_prelim" datasets using the "full_join" function and the common ID variable, "city". To remove the cities that only appeared in one of the two datasets, I used "na.omit()" to remove rows containing NAs. I decided to use a full join to preserve all of the variables from both datasets. This final, combined dataset, called "newjoin", has 13 variables and 71 observations. </span>
+
+
+### Wrangling
+```{R}
+
+newjoin %>% filter(country.etc== "TX") %>% glimpse()
+
+newjoin1 <-newjoin %>% select(-state.x, -state.y, -source, -as_of, -lat, -long) %>% rename("state" =country.etc) %>% glimpse()
+
+newjoin1$capital[newjoin1$capital == 0] <- "Non-capital"
+newjoin1$capital[newjoin1$capital == 1] <- "Capital"
+newjoin1$capital[newjoin1$capital == 2] <- "State-capital"
+
+
+
+newjoin1 %>% arrange(desc(murders_2015))
+
+newjoin1 %>% group_by(state) %>% summarize(mean_murders2015=mean(murders_2015,na.rm=T))%>% arrange(desc(mean_murders2015))
+newjoin1 %>% group_by(state) %>% summarize(mean_murders2016=mean(murders_2016,na.rm=T))%>% arrange(desc(mean_murders2016))
+newjoin1 %>% group_by(state) %>% summarize(mean_pop=mean(pop,na.rm=T))%>% arrange(desc(mean_pop))
+
+newjoin2 <-newjoin1 %>% mutate(murders2015_per_pop= murders_2015/pop) %>% mutate(murders2016_per_pop= murders_2016/pop) %>% glimpse()
+
+newjoin2$capital[newjoin2$capital == 0] <- "Non-capital"
+newjoin2$capital[newjoin2$capital == 1] <- "Capital"
+newjoin2$capital[newjoin2$capital == 2] <- "State-capital"
+
+newjoin2 %>% group_by(state) %>% summarize(mean_2015murders_per_pop = mean(murders2015_per_pop, na.rm = T)) %>% arrange(desc(mean_2015murders_per_pop)) %>% glimpse()
+
+library("knitr")
+
+kable(summary(newjoin2, type = "numeric"))
+
+
+newjoin2 %>% summarize(mean_pop=mean(pop, na.rm=T), sd_pop=sd(pop), var_pop=var(pop), quantile_pop=quantile(pop), min_pop= min(pop), max_pop=max(pop),
+n_rows=n(), n_dist_pop=n_distinct(pop)) %>% kable()
+
+newjoin2 %>% summarize(mean_murders2015=mean(murders_2015, na.rm=T), sd_muders2015=sd(murders_2015), var_murders2015=var(murders_2015), quantile_murders2015=quantile(murders_2015), min_murders2015= min(murders_2015), max_murders2015=max(murders_2015),
+n_rows=n(), n_dist_murders2015=n_distinct(murders_2015)) %>% kable()
+
+newjoin2 %>% summarize(mean_murders2016=mean(murders_2016, na.rm=T), sd_muders2016=sd(murders_2016), var_murders2016=var(murders_2016), quantile_murders2016=quantile(murders_2016), min_murders2016= min(murders_2016), max_murders2016=max(murders_2016),
+n_rows=n(), n_dist_murders2016=n_distinct(murders_2016)) %>% kable()
+
+newjoin2 %>% summarize(mean_change=mean(change, na.rm=T), sd_change=sd(change), var_change=var(change), quantile_change=quantile(change), min_change= min(change), max_change=max(change),
+n_rows=n(), n_dist_change=n_distinct(change)) %>% kable()
+
+newjoin2 %>% summarize(mean_murders2015_per_pop=mean(murders2015_per_pop, na.rm=T), sd_murders2015_per_pop=sd(murders2015_per_pop), var_murders2015_per_pop=var(murders2015_per_pop), quantile_murders2015_per_pop=quantile(murders2015_per_pop), min_murders2015_per_pop= min(murders2015_per_pop), max_murders2015_per_pop=max(murders2015_per_pop),
+n_rows=n(), n_dist_murders2015_per_pop=n_distinct(murders2015_per_pop)) %>% kable()
+
+newjoin2 %>% summarize(mean_murders2016_per_pop=mean(murders2016_per_pop, na.rm=T), sd_murders2016_per_pop=sd(murders2016_per_pop), var_murders2016_per_pop=var(murders2016_per_pop), quantile_murders2016_per_pop=quantile(murders2016_per_pop), min_murders2016_per_pop= min(murders2016_per_pop), max_murders2016_per_pop=max(murders2016_per_pop),
+n_rows=n(), n_dist_murders2016_per_pop=n_distinct(murders2016_per_pop)) %>% kable()
+
+##SUMMARY STATISTICS WITH GROUPING BY STATE
+
+newjoin2 %>% group_by(state) %>% summarize(mean_pop=mean(pop, na.rm=T), sd_pop=sd(pop), var_pop=var(pop), quantile_pop=quantile(pop), min_pop= min(pop), max_pop=max(pop),
+n_rows=n(), n_dist_pop=n_distinct(pop)) %>% glimpse()
+
+newjoin2 %>% group_by(state) %>% summarize(mean_murders2015=mean(murders_2015, na.rm=T), sd_muders2015=sd(murders_2015), var_murders2015=var(murders_2015), quantile_murders2015=quantile(murders_2015), min_murders2015= min(murders_2015), max_murders2015=max(murders_2015),
+n_rows=n(), n_dist_murders2015=n_distinct(murders_2015)) %>% glimpse
+
+newjoin2 %>% group_by(state) %>% summarize(mean_murders2016=mean(murders_2016, na.rm=T), sd_muders2016=sd(murders_2016), var_murders2016=var(murders_2016), quantile_murders2016=quantile(murders_2016), min_murders2016= min(murders_2016), max_murders2016=max(murders_2016),
+n_rows=n(), n_dist_murders2016=n_distinct(murders_2016)) %>% glimpse
+
+newjoin2 %>% group_by(state) %>% summarize(mean_change=mean(change, na.rm=T), sd_change=sd(change), var_change=var(change), quantile_change=quantile(change), min_change= min(change), max_change=max(change),
+n_rows=n(), n_dist_change=n_distinct(change)) %>% glimpse()
+
+newjoin2 %>% group_by(state) %>% summarize(mean_murders2015_per_pop=mean(murders2015_per_pop, na.rm=T), sd_murders2015_per_pop=sd(murders2015_per_pop), var_murders2015_per_pop=var(murders2015_per_pop), quantile_murders2015_per_pop=quantile(murders2015_per_pop), min_murders2015_per_pop= min(murders2015_per_pop), max_murders2015_per_pop=max(murders2015_per_pop),
+n_rows=n(), n_dist_murders2015_per_pop=n_distinct(murders2015_per_pop)) %>% glimpse()
+
+newjoin2 %>% group_by(state) %>% summarize(mean_murders2016_per_pop=mean(murders2016_per_pop, na.rm=T), sd_murders2016_per_pop=sd(murders2016_per_pop), var_murders2016_per_pop=var(murders2016_per_pop), quantile_murders2016_per_pop=quantile(murders2016_per_pop), min_murders2016_per_pop= min(murders2016_per_pop), max_murders2016_per_pop=max(murders2016_per_pop),
+n_rows=n(), n_dist_murders2016_per_pop=n_distinct(murders2016_per_pop)) %>% glimpse()
+
+newjoin2 %>% group_by(state, capital) %>% summarize(mean_pop=mean(pop, na.rm=T), sd_pop=sd(pop), var_pop=var(pop), min_pop= min(pop), max_pop=max(pop),
+n_rows=n(), n_dist_pop=n_distinct(pop)) %>% glimpse()
+
+newjoin2cormat <- newjoin2 %>% select_if(is.numeric) %>% cor(use="pair")
+kable(newjoin2cormat)
+
+```
+
+<span style="color:blue">First all 6 dplyr functions were used to analyze the data. The "filter" function was used to filter and view the dataset with only cities in Texas. The "select" function was used to permanently remove the rows "state.x" and "state.y", which were repeats of the column "country.etc", and also to remove the rows "source", "as_of", "lat" and "long". The "rename" function was used to change the column title "country.etc" to "state". The "arrange" function was first used to arrange cities by most to least number of murders in 2015. It can be seen that Chicago had the greatest number of 2015 murders. By using "group_by" to group by state, then using "summarize" to find the mean murders in 2015 of each state, and finally using arrange to arrange the mean 2015 murders from greatest to least, it can be seen that Maryland has the greatest average murders in 2015, followed by Michigan and Pennsylvania. Using the same functions, I arranged the states by greatest to least mean population size. Michigan, Pennsylvania and Illinois had the greatest average population. Suprisingly, Maryland, which had the greatest mean murders in 2015, was not among the top 5 most populous states. This goes against my prediction that greater population would correlate with a greater number of murders. I then used the "mutate" function to create the new variables "murders2015_per_pop" and "murders2016_per_pop", which describe the number of murders as a proportion of each city's population. By using the "group_by", "summarize" and "arrange functions, I found that Indiana had the greatest average murders per person in 2015, followed by Ohio and Maryland</span>.
+
+<span style="color:blue">I then computed the summary statistics of each numeric variable, using the "mean", "sd", "var", "quantile", "min", "max", "n" and "n_distinct" functions within the "summarize" function. I laid these statistics out in a table using the "kable" function. I followed the same procedure to compute the summary statistics after grouping by state. Not suprisingly, there were very large standard deviations and variances for each of the variables, which makes sense given the variability of city statistics. The exception to this came when grouping by state and recieving "NA" for the standard devation and variance of some states, such as Arkansas. This was because some states were only represented by 1 city in this dataset and therefore there was no standard deviation/variability within that state's data. I also grouped by both state and capital status, and computed population statistics. For all states having capital and non-capital cities, except for Tennesee, the capital city had a greater mean population compared to the state's non-captial cities. Lastly, I created a correlation matrix of my numeric variables, called "newjoin2cormat"</span>.  
+        
+### Visualizing
+#### Heat Map
+```{R}
+library(tibble)
+tidycor <-newjoin2cormat %>% as.data.frame %>% rownames_to_column("var1") %>%
+pivot_longer(-1,names_to="var2",values_to="correlation")
+
+tidycor %>% arrange(desc(correlation)) 
+
+library(ggplot2)
+tidycor %>% ggplot(aes(var1,var2,fill=correlation))+
+geom_tile()+ ggtitle("Heat Map of Numeric Variables") +
+scale_fill_gradient2(low="green",mid="yellow",high="red")+
+geom_text(aes(label=round(correlation,2)),color = "black", size = 4)+
+theme(axis.text.x = element_text(angle = 90, hjust=1))
+```
+
+#### Plot Type #1: Scatterplot
+```{R}
+newjoin2 %>% ggplot(aes(murders_2015, pop, color=capital)) + geom_point() + ggtitle("Population vs. Number of 2015 Murders in Capital and Non-Capital Cities") + xlab("Number of Murders in 2015") + ylab("City Population") +
+scale_x_log10(labels=scales::number, n.breaks=7)+ scale_y_log10(labels=scales::number, n.breaks=7) + geom_smooth(method='lm', formula= y~x, colour= "red") + theme_light()
+
+newjoin2 %>% ggplot(aes(murders_2016, pop, color=capital)) + geom_point() + ggtitle("Population vs. Number of 2016 Murders in Capital and Non-Capital Cities") + xlab("Number of Murders in 2016") + ylab("City Population") +
+scale_x_log10(labels=scales::number, n.breaks=7)+ scale_y_log10(labels=scales::number, n.breaks=7) + geom_smooth(method='lm', formula= y~x, colour= "red") + theme_light()
+```
+<span style="color:blue">For my first set of plots, I decided to use a scatterplot to look at the number of murders in 2015/2016 versus the population size of each city. The color of the points are colored based on whether the city was a capital or non-captial city. To further evaluate the relationship between city population and the number of 2015/2016 murders, I fitted a linear regression line to the points. Looking at this regression line, it can be seen that there is a slight, positive linear relationship between the population size and the number of murders in a city.When focusing on the capital status of the cities, it can be seen that capital cities tend to have a higher city population. On the other hand however, capital-status does not appear to have any effect on the number of murders</span>.  
+
+#### Plot Type #2: Grouped Barplot
+```{R}
+newjoin2 %>% ggplot(aes(x = state, y= murders_2015, fill= capital))+ geom_bar(position= "dodge", stat="summary") + ggtitle("State vs. Number of 2015 Murders in Capital and Non-Capital Cities") + ylab("Number of Murders in 2015") + xlab("State") +
+scale_fill_brewer(palette = "Set2") + theme_dark()
+
+newjoin2 %>% ggplot(aes(x = state, y= murders_2016, fill= capital))+ geom_bar(position= "dodge", stat="summary") + ggtitle("State vs. Number of 2016 Murders in Capital and Non-Capital Cities") + ylab("Number of Murders in 2016") + xlab("State") +
+scale_fill_brewer(palette = "Set3") + theme_dark()
+```
+<span style="color:blue">The second set of variables I decided to look at were state, number of 2015/2016 murders and capital status. I placed these variables on a grouped bar plot, where I could see the average number of 2015/2016 murders for the capital and non-capital cities of each state. Average number of murders was computed using the "stat=summary" function. By looking at both the 2015 and 2016 plots, it can be seen that the highest average number of murders occured in Maine and Michigan for both years. For states represented by both capital and non-capital cities, it appears that the average number of murders is independent of whether the city is a capital city or non-capital city. This supports what was found from the scatterplots of city population, number of murders and capital status</span>.
+
+### Dimensionality
+```{R}
+library(tidyverse)
+library(cluster)
+
+gowdat<-newjoin2%>%select(city, pop, murders_2015, murders_2016, change)%>%mutate_if(is.character,as.factor)
+gower1<-daisy(gowdat,metric="gower")
+
+sil_width<-vector()
+for(i in 2:10){
+pam_fit <- pam(gower1, diss = TRUE, k = i)
+sil_width[i] <- pam_fit$silinfo$avg.width
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+
+pam1 <- pam(gower1, k = 2, diss = T)
+pam1
+
+pam1$silinfo$avg.width
+
+library(Rtsne)
+tsne_obj <- Rtsne(gower1, is_distance = TRUE, perplexity=2)
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam1$clustering))
+ggplot(aes(x = X, y = Y), data = tsne_data) +
+  geom_point(aes(color = cluster))
+
+
+```
+
+<span style="color:blue">Since I wanted to evaluate both numeric and categorical data, I used gower dissimilarities for my PAM clustering. First, I grabbed the variables I wanted to use in my cluster using the "select" function and turned any characters into factors using the "mutate_if" function. I named this new dataset "gowdat". I then computed the gower distances using the "daisy" function and created a vector called "gower1". I ran the "pam" function on these gower dissimilarities to find the ideal number of clusters for running PAM. The ideal number of clusters was 2 becuase had the highest highest average silhouette width, which gives the most separated and most cohesive clusters. PAM was then run using 2 clusters. Silhouette width was found to be 0.175 and because this was less than 0.25, this means that no substantial structure was found. This is expected given the results of the plots and correlation matrix found previously. Finally, I created a visualization of the clusters using the "Rtsne" and "ggplot" functions. In this plot, it can be seen that the clusters are not very separated </span>.

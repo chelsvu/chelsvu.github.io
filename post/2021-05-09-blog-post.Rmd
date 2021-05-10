@@ -1,0 +1,11 @@
++++
+title = "Blog Post #1- SDS, Senior Year and more"
+description = "I can't believe we are already at the end of the semester! Even with the pandemic going on, I still had a grear year, finding new hobbies, hanging out with close friends and exploring new parts of Austin. I enjoyed taking SDS 348 and learning some coding! I linked my Project 1 below as well as some random R code. Now, I'm looking foward to having a fun, relaxing summer and starting school again in the fall."
+tags = [Link to project 1](/project/project1/)
+categories = []
++++
+`
+``` {R}
+summary(PlantGrowth)
+
+```
