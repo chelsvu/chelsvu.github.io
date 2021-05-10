@@ -1,37 +1,11 @@
----
-title: "Hello R Markdown"
-author: "Frida Gomam"
-date: 2015-07-23T21:13:14-05:00
-categories: ["R"]
-tags: ["R Markdown", "plot", "regression"]
----
++++
+title = "Blog Post #1- SDS, Senior Year and more"
+description = "I can't believe we are already at the end of the semester! Even with the pandemic going on, I still had a grear year, finding new hobbies, hanging out with close friends and exploring new parts of Austin. I enjoyed taking SDS 348 and learning some coding! I linked my Project 1 below as well as some random R code. Now, I'm looking foward to having a fun, relaxing summer and starting school again in the fall."
+tags = [Link to project 1](/project/project1/)
+categories = []
++++
+`
+``` {R}
+summary(PlantGrowth)
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE)
-```
-
-# R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-fit <- lm(dist ~ speed, data = cars)
-fit
-```
-
-# Including Plots
-
-You can also embed plots. See Figure \@ref(fig:pie) for example:
-
-```{r pie, fig.cap='A fancy pie chart.', tidy=FALSE}
-par(mar = c(0, 1, 0, 1))
-pie(
-  c(280, 60, 20),
-  c('Sky', 'Sunny side of pyramid', 'Shady side of pyramid'),
-  col = c('#0292D8', '#F7EA39', '#C4B632'),
-  init.angle = -50, border = NA
-)
 ```
